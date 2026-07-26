@@ -144,6 +144,11 @@ export default function Home() {
     window.addEventListener("beforeinstallprompt",handleInstall);
     return()=>window.removeEventListener("beforeinstallprompt",handleInstall);
   }, []);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(""), 2600);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   async function save() {
     if (!editing || !editing.groom || !editing.bride || !editing.weddingDate) {
