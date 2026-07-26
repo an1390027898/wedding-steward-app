@@ -172,6 +172,7 @@ button { cursor: pointer; }
 .add-top { border: 0; border-radius: 11px; background: var(--wine); color: white; padding: 9px 12px; font-size: 11px; font-weight: 800; }
 .top-actions { display:flex; align-items:center; gap:6px; }
 .export-top { border:1px solid #d7b9bd; border-radius:11px; background:white; color:var(--wine); padding:8px 10px; font-size:9px; font-weight:800; }
+.install-top { border:0; border-radius:11px; background:#efe2d1; color:#7d542a; padding:8px 10px; font-size:9px; font-weight:800; }
 .manager-hero { min-height: 156px; padding: 23px; border-radius: 24px; color: white; background: linear-gradient(140deg,#771824,#a32d3a); display:flex; align-items:flex-start; justify-content:space-between; box-shadow:0 14px 30px rgba(141,31,45,.2); position:relative; overflow:hidden; }
 .manager-hero::after { content:"囍"; position:absolute; right:58px; bottom:-58px; font:150px serif; color:rgba(255,255,255,.05); }
 .manager-hero span { font-size:10px; opacity:.7; letter-spacing:.08em; }
@@ -385,6 +386,8 @@ button { cursor: pointer; }
   .mini-schedule small { display:none; }
   .profile-head > div { grid-template-columns:1fr; }
   .top-actions .add-top { display:none; }
+  .top-actions { gap:4px; }
+  .export-top,.install-top { padding:8px; }
   .staff-inputs > div { grid-template-columns:.8fr 1.2fr; }
   .staff-inputs > div input:nth-child(3),.staff-inputs > div input:nth-child(4) { grid-column:auto; }
   .staff-inputs > div button { grid-column:2; justify-self:end; width:26px; height:26px; }

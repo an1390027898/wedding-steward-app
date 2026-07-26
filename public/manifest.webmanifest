@@ -1,0 +1,26 @@
+{
+  "name": "婚礼管家",
+  "short_name": "婚礼管家",
+  "description": "客户、档期、家庭会议、手机看板与婚礼当天执行工作台",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fbf8f4",
+  "theme_color": "#8d1f2d",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

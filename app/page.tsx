@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 type ScheduleItem = { time: string; title: string; place: string; owner: string; script: string; items: string[] };
 type Preparation = { side: "男方" | "女方"; name: string; quantity: string; owner: string; deadline: string; done: boolean };
 type FamilyRole = { side: "男方" | "女方"; role: string; duty: string; name: string; phone: string };
+type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 type Wedding = {
   id?: number; groom: string; bride: string; weddingDate: string; banquetTime: string; status: string;
   phone: string; hotel: string; groomAddress: string; brideAddress: string; notes: string;
@@ -116,6 +117,7 @@ export default function Home() {
   const [exporting, setExporting] = useState(false);
   const [stageEdit, setStageEdit] = useState<{index:number;item:ScheduleItem}|null>(null);
   const [stageItemDraft, setStageItemDraft] = useState("");
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent|null>(null);
   const captureRef = useRef<HTMLElement>(null);
 
   async function load() {
@@ -128,7 +130,13 @@ export default function Home() {
     } catch { setToast("客户数据暂时无法读取，请稍后重试"); }
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
+    const handleInstall=(event:Event)=>{event.preventDefault();setInstallPrompt(event as InstallPromptEvent)};
+    window.addEventListener("beforeinstallprompt",handleInstall);
+    return()=>window.removeEventListener("beforeinstallprompt",handleInstall);
+  }, []);
 
   async function save() {
     if (!editing || !editing.groom || !editing.bride || !editing.weddingDate) {
@@ -192,6 +200,11 @@ export default function Home() {
     const schedule=[...current.schedule]; schedule[stageEdit.index]=stageEdit.item;
     persistWedding({...current,schedule},"执行环节已更新，其他页面已同步"); setStageEdit(null); setStageItemDraft("");
   }
+  async function installApp() {
+    if(installPrompt){await installPrompt.prompt();const choice=await installPrompt.userChoice;if(choice.outcome==="accepted")setToast("婚礼管家已添加到桌面");setInstallPrompt(null);return;}
+    const isiPhone=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+    setToast(isiPhone?"请点Safari底部“分享”，再选“添加到主屏幕”":"请打开浏览器菜单，选择“安装应用”或“添加到主屏幕”");
+  }
   function deleteStage(index:number) {
     if(!current)return;
     persistWedding({...current,schedule:current.schedule.filter((_,i)=>i!==index)},"执行环节已删除，其他页面已同步");
@@ -208,7 +221,7 @@ export default function Home() {
   const days = new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate();
 
   return <main className="app-shell manager">
-    <header className="topbar no-export"><div className="brand"><span className="brand-mark">囍</span><div><strong>婚礼管家</strong><small>客户与执行工作台</small></div></div><div className="top-actions">{current&&["detail","meeting","board","execute"].includes(tab)&&<button className="export-top" onClick={exportCurrentPage}>{exporting?"生成中…":"导出长图"}</button>}<button className="add-top" onClick={() => setEditing({ ...blank, contacts: blank.contacts.map(x=>({...x})),preparations:blank.preparations.map(x=>({...x})),familyRoles:blank.familyRoles.map(x=>({...x})) })}>＋ 新建客户</button></div></header>
+    <header className="topbar no-export"><div className="brand"><span className="brand-mark">囍</span><div><strong>婚礼管家</strong><small>客户与执行工作台</small></div></div><div className="top-actions"><button className="install-top" onClick={installApp}>安装</button>{current&&["detail","meeting","board","execute"].includes(tab)&&<button className="export-top" onClick={exportCurrentPage}>{exporting?"生成中…":"导出长图"}</button>}<button className="add-top" onClick={() => setEditing({ ...blank, contacts: blank.contacts.map(x=>({...x})),preparations:blank.preparations.map(x=>({...x})),familyRoles:blank.familyRoles.map(x=>({...x})) })}>＋ 新建客户</button></div></header>
     <section className="content" ref={captureRef}>
       {tab === "clients" && <>
         <div className="manager-hero"><div><span>婚礼管家工作台</span><h1>客户档案与近期婚礼</h1><p>先建档，再自动生成专属时间表和风俗执行单。</p></div><b>{rows.length}<small>客户</small></b></div>
