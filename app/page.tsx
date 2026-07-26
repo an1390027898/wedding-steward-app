@@ -139,10 +139,11 @@ export default function Home() {
   }
   useEffect(() => {
     load();
+    if (/Android/i.test(navigator.userAgent)) document.documentElement.classList.add("android-device");
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
     const handleInstall=(event:Event)=>{event.preventDefault();setInstallPrompt(event as InstallPromptEvent)};
     window.addEventListener("beforeinstallprompt",handleInstall);
-    return()=>window.removeEventListener("beforeinstallprompt",handleInstall);
+    return()=>{window.removeEventListener("beforeinstallprompt",handleInstall);document.documentElement.classList.remove("android-device");};
   }, []);
   useEffect(() => {
     if (!toast) return;

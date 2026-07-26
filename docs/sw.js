@@ -1,4 +1,4 @@
-const CACHE = "wedding-steward-v11";
+const CACHE = "wedding-steward-v12";
 const BASE = new URL("./", self.location.href).pathname;
 const APP_SHELL = [`${BASE}manifest.webmanifest`, `${BASE}app-icon-192.png`, `${BASE}app-icon-512.png`, `${BASE}apple-touch-icon.png`, `${BASE}vendor/html2canvas.min.js`, `${BASE}update.html`];
 

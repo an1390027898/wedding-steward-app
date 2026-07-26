@@ -430,6 +430,18 @@ button { cursor: pointer; }
   .family-role-editor > div input:nth-of-type(n+2) { grid-column:1/-1; }
   .stage-form { grid-template-columns:1fr; }
   .stage-form .wide { grid-column:auto; }
+  .android-device .form-sheet .custom-select { grid-template-columns:1fr 1fr; }
+  .android-device .form-sheet .staff-inputs > div { grid-template-columns:.72fr 1fr 1.15fr .8fr 26px; padding:0; border:0; }
+  .android-device .form-sheet .staff-inputs > div input:nth-child(3),
+  .android-device .form-sheet .staff-inputs > div input:nth-child(4) { grid-column:auto; }
+  .android-device .form-sheet .staff-inputs > div button { grid-column:auto; width:auto; height:auto; }
+  .android-device .form-sheet .prep-summary { grid-template-columns:1fr 1fr; }
+  .android-device .form-sheet .prep-editor > div { grid-template-columns:.55fr 1.25fr .85fr .9fr .9fr .6fr 26px; padding:0; border:0; }
+  .android-device .form-sheet .prep-editor > div input:nth-of-type(n+2) { grid-column:auto; }
+  .android-device .form-sheet .family-role-editor > div { grid-template-columns:.55fr .8fr 1.45fr .8fr 1fr 26px; padding:0; border:0; }
+  .android-device .form-sheet .family-role-editor > div input:nth-of-type(n+2) { grid-column:auto; }
+  .android-device .form-sheet .stage-form { grid-template-columns:1fr 1fr; }
+  .android-device .form-sheet .stage-form .wide { grid-column:1/-1; }
 }
 @media print {
   .no-print,.board-page .back { display:none!important; }
