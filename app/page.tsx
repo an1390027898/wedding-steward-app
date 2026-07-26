@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ScheduleItem = { time: string; title: string; place: string; owner: string; script: string; items: string[] };
 type Preparation = { side: "男方" | "女方"; name: string; quantity: string; owner: string; deadline: string; done: boolean };
@@ -17,6 +17,20 @@ const timeFields = [
 ] as const;
 
 const defaultContacts = ["管家","主持人","摄影师","摄像师","化妆师"];
+const familyRoles = [
+  ["男方","男方总管","统筹人员、烟酒糖、送亲接待和突发协调"],
+  ["男方","男方上头奶奶","支床滚床、接灯、下车进门、新房礼"],
+  ["男方","喜婆婆","下车钱、红皮箱捏锁和迎接新娘"],
+  ["男方","车辆总管","车队排序、路线、司机和备用车辆"],
+  ["男方","安全员","车辆、红毯、防滑、儿童和明火安全"],
+  ["男方","铺路／撒喜人","清理新人通道、铺红毯和迎门"],
+  ["女方","女方总管","控制女方时间、嫁妆、拜别和出门"],
+  ["女方","女方上头奶奶","上马菜、新娘出门和女方风俗指导"],
+  ["女方","行人","返程报喜、青龙贴及安全替代仪式"],
+  ["女方","送亲兄弟／抱箱人","红皮箱、钥匙和换鞋交接"],
+  ["女方","护被人／抱被人","棉被枕头运输并交入新房"],
+  ["女方","伴娘","长命灯、红毛巾、随身包和裙摆"],
+] as const;
 
 const defaultPreparations: Preparation[] = [
   { side:"男方",name:"总流程表、联系人表",quantity:"纸质＋电子版各1份",owner:"男方总管",deadline:"婚前3—7天",done:false },
@@ -88,7 +102,7 @@ function makeSchedule(w: Wedding): ScheduleItem[] {
 }
 
 export default function Home() {
-  const [tab, setTab] = useState<"clients" | "calendar" | "detail" | "board" | "execute">("clients");
+  const [tab, setTab] = useState<"clients" | "calendar" | "detail" | "meeting" | "board" | "execute">("clients");
   const [rows, setRows] = useState<Wedding[]>([]);
   const [current, setCurrent] = useState<Wedding | null>(null);
   const [editing, setEditing] = useState<Wedding | null>(null);
@@ -97,6 +111,8 @@ export default function Home() {
   const [toast, setToast] = useState("");
   const [done, setDone] = useState<Record<string, boolean>>({});
   const [customDraft, setCustomDraft] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const captureRef = useRef<HTMLElement>(null);
 
   async function load() {
     setLoading(true);
@@ -150,6 +166,23 @@ export default function Home() {
     if (!editing) return; const value=name.trim();
     if(value&&!editing.customs.includes(value)) setEditing({...editing,customs:[...editing.customs,value],customExecutors:{...editing.customExecutors,[value]:""}});
   }
+  async function exportCurrentPage() {
+    const target=captureRef.current; if(!target||exporting)return;
+    setExporting(true);
+    try {
+      const css=Array.from(document.styleSheets).map(sheet=>{try{return Array.from(sheet.cssRules).map(rule=>rule.cssText).join("\n")}catch{return""}}).join("\n");
+      const clone=target.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll(".no-export,.no-print,.bottom-nav").forEach(node=>node.remove());
+      const width=Math.max(target.scrollWidth,520), height=target.scrollHeight;
+      const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml"><style>${css}</style>${clone.outerHTML}</div></foreignObject></svg>`;
+      const blob=new Blob([svg],{type:"image/svg+xml;charset=utf-8"}); const url=URL.createObjectURL(blob); const img=new Image();
+      await new Promise<void>((resolve,reject)=>{img.onload=()=>resolve();img.onerror=reject;img.src=url});
+      const scale=Math.min(2,12000/Math.max(height,1)); const canvas=document.createElement("canvas"); canvas.width=Math.round(width*scale); canvas.height=Math.round(height*scale);
+      const ctx=canvas.getContext("2d"); if(!ctx)throw new Error("canvas"); ctx.scale(scale,scale); ctx.fillStyle="#fbf8f4";ctx.fillRect(0,0,width,height);ctx.drawImage(img,0,0,width,height);URL.revokeObjectURL(url);
+      const link=document.createElement("a");link.download=`${current?`${current.groom}-${current.bride}-`:""}${tab}-长图.png`;link.href=canvas.toDataURL("image/png");link.click();setToast("当前页面长图已导出");
+    } catch { setToast("当前浏览器无法直接导出，请使用系统长截图"); }
+    setExporting(false);
+  }
   function open(w: Wedding) { setCurrent(w); setTab("detail"); }
   function regenerate() {
     if (!current) return;
@@ -162,8 +195,8 @@ export default function Home() {
   const days = new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate();
 
   return <main className="app-shell manager">
-    <header className="topbar"><div className="brand"><span className="brand-mark">囍</span><div><strong>通用婚礼管家</strong><small>客户与执行工作台</small></div></div><button className="add-top" onClick={() => setEditing({ ...blank, contacts: blank.contacts.map(x=>({...x})) })}>＋ 新建客户</button></header>
-    <section className="content">
+    <header className="topbar no-export"><div className="brand"><span className="brand-mark">囍</span><div><strong>通用婚礼管家</strong><small>客户与执行工作台</small></div></div><div className="top-actions">{current&&["detail","meeting","board","execute"].includes(tab)&&<button className="export-top" onClick={exportCurrentPage}>{exporting?"生成中…":"导出长图"}</button>}<button className="add-top" onClick={() => setEditing({ ...blank, contacts: blank.contacts.map(x=>({...x})),preparations:blank.preparations.map(x=>({...x})) })}>＋ 新建客户</button></div></header>
+    <section className="content" ref={captureRef}>
       {tab === "clients" && <>
         <div className="manager-hero"><div><span>婚礼管家工作台</span><h1>客户档案与近期婚礼</h1><p>先建档，再自动生成专属时间表和风俗执行单。</p></div><b>{rows.length}<small>客户</small></b></div>
         <div className="stats"><div><small>本月婚礼</small><strong>{filtered.length} 场</strong></div><div><small>待完善档案</small><strong>{rows.filter(x => !x.hotel || !x.phone).length} 份</strong></div><div><small>最近档期</small><strong>{rows.find(x => x.weddingDate >= new Date().toISOString().slice(0,10))?.weddingDate.slice(5).replace("-","/") || "暂无"}</strong></div></div>
@@ -181,7 +214,7 @@ export default function Home() {
 
       {tab === "detail" && current && <section className="page-section detail">
         <button className="back" onClick={()=>setTab("clients")}>‹ 返回客户列表</button>
-        <div className="profile-head"><span>{current.status}</span><h1>{current.groom} <i>与</i> {current.bride}</h1><p>{current.weddingDate} · {current.banquetTime} 开席</p><div><button onClick={()=>setEditing({...current})}>编辑档案</button><button onClick={()=>setTab("board")}>手机看板</button><button className="primary" onClick={()=>setTab("execute")}>当天执行</button></div></div>
+        <div className="profile-head"><span>{current.status}</span><h1>{current.groom} <i>与</i> {current.bride}</h1><p>{current.weddingDate} · {current.banquetTime} 开席</p><div><button onClick={()=>setEditing({...current})}>编辑档案</button><button onClick={()=>setTab("meeting")}>双方家庭会</button><button onClick={()=>setTab("board")}>手机看板</button><button className="primary" onClick={()=>setTab("execute")}>当天执行</button></div></div>
         <div className="info-card"><h3>客户信息</h3><dl><div><dt>联系电话</dt><dd>{current.phone||"待填写"}</dd></div><div><dt>婚宴酒店</dt><dd>{current.hotel||"待填写"}</dd></div><div><dt>男方地址</dt><dd>{current.groomAddress||"待填写"}</dd></div><div><dt>女方地址</dt><dd>{current.brideAddress||"待填写"}</dd></div></dl></div>
         <div className="info-card"><div className="card-title"><h3>婚礼风俗与执行人</h3><button onClick={()=>setEditing({...current})}>调整</button></div><div className="custom-duty-list">{current.customs.map(x=><div key={x}><span>✓ {x}</span><b>{current.customExecutors[x]||"执行人待确认"}</b></div>)}</div></div>
         <div className="info-card"><div className="card-title"><div><h3>双方物品准备提醒</h3><p>{current.preparations.filter(x=>x.done).length}/{current.preparations.length} 项已完成</p></div><button onClick={()=>setEditing({...current})}>编辑清单</button></div>
@@ -189,6 +222,16 @@ export default function Home() {
         </div>
         <div className="info-card"><div className="card-title"><div><h3>专属时间表</h3><p>只使用你填写的关键时间；空白项显示“待确认”</p></div><button onClick={regenerate}>刷新时间表</button></div><div className="mini-schedule">{current.schedule.map(x=><div key={x.time+x.title}><time className={x.time==="待确认"?"pending-time":""}>{x.time}</time><span>{x.title}</span><small>{x.place}</small></div>)}</div>{editing?.id===current.id&&<button className="save-generated" onClick={save}>保存新时间表</button>}</div>
         {current.notes&&<div className="info-card"><h3>客户备注</h3><p className="notes">{current.notes}</p></div>}
+      </section>}
+
+      {tab === "meeting" && current && <section className="page-section meeting-page">
+        <button className="back no-export" onClick={()=>setTab("detail")}>‹ 返回客户档案</button>
+        <div className="meeting-cover"><span>双方家庭婚前沟通依据</span><h1>{current.groom} & {current.bride}</h1><p>{current.weddingDate} · 本清单须由双方家庭共同确认</p></div>
+        <div className="meeting-note"><b>会议目标</b><p>把每件物品、每个风俗落实到具体人员。没有确认的项目不擅自增加；现场变化由管家统一同步。</p></div>
+        {(["男方","女方"] as const).map(side=><section className="meeting-block" key={side}><div className="meeting-title"><i>{side.slice(0,1)}</i><div><h2>{side}准备事项</h2><p>物品、负责人、期限及完成状态</p></div></div><div className="meeting-table"><div className="meeting-row head"><b>准备项目</b><b>负责人／期限</b><b>状态</b></div>{current.preparations.filter(x=>x.side===side).map((item,index)=><div className="meeting-row" key={`${side}-${index}`}><span><b>{item.name}</b><small>{item.quantity}</small></span><span>{item.owner||"待确定"}<small>{item.deadline||"时间待确认"}</small></span><em className={item.done?"ok":""}>{item.done?"已完成":"待准备"}</em></div>)}</div></section>)}
+        <section className="meeting-block"><div className="meeting-title"><i>人</i><div><h2>双方家庭执行人员</h2><p>姓名和电话可在客户档案的工作人员中补充</p></div></div><div className="role-meeting">{familyRoles.map(([side,role,duty])=>{const person=current.contacts.find(c=>c.role===role);return <div key={role}><em>{side}</em><span><b>{role}</b><small>{duty}</small></span><p>{person?.name||"待确定"}{person?.phone&&<small>{person.phone}</small>}</p></div>})}</div></section>
+        <section className="meeting-block"><div className="meeting-title"><i>俗</i><div><h2>本场风俗与执行人</h2><p>不同村镇做法不同，必须由双方长辈最终确认</p></div></div><div className="custom-meeting">{current.customs.map(name=><div key={name}><span>□</span><b>{name}</b><p>{current.customExecutors[name]||"执行人待确定"}</p></div>)}</div></section>
+        <p className="meeting-foot">确认日期：________　男方代表：________　女方代表：________　管家：________</p>
       </section>}
 
       {tab === "board" && current && <section className="page-section board-page">
@@ -220,7 +263,7 @@ export default function Home() {
       </section>}
     </section>
 
-    <nav className="bottom-nav manager-nav no-print"><button className={tab==="clients"?"active":""} onClick={()=>setTab("clients")}><i>客</i><span>客户</span></button><button className={tab==="calendar"?"active":""} onClick={()=>setTab("calendar")}><i>期</i><span>档期</span></button><button className={["detail","board","execute"].includes(tab)?"active":""} onClick={()=>current?setTab("detail"):setTab("clients")}><i>案</i><span>当前档案</span></button></nav>
+    <nav className="bottom-nav manager-nav no-print no-export"><button className={tab==="clients"?"active":""} onClick={()=>setTab("clients")}><i>客</i><span>客户</span></button><button className={tab==="calendar"?"active":""} onClick={()=>setTab("calendar")}><i>期</i><span>档期</span></button><button className={["detail","meeting","board","execute"].includes(tab)?"active":""} onClick={()=>current?setTab("detail"):setTab("clients")}><i>案</i><span>当前档案</span></button></nav>
 
     {editing && <div className="modal-backdrop"><section className="form-sheet"><div className="sheet-top"><div><span>{editing.id?"编辑客户":"新建客户"}</span><h2>婚礼信息建档</h2></div><button onClick={()=>setEditing(null)}>×</button></div>
       <div className="form-grid"><label>新郎姓名<input value={editing.groom} onChange={e=>setEditing({...editing,groom:e.target.value})} placeholder="必填"/></label><label>新娘姓名<input value={editing.bride} onChange={e=>setEditing({...editing,bride:e.target.value})} placeholder="必填"/></label><label>婚礼日期<input type="date" value={editing.weddingDate} onChange={e=>setEditing({...editing,weddingDate:e.target.value})}/></label><label>开席时间<input type="time" value={editing.banquetTime} onChange={e=>setEditing({...editing,banquetTime:e.target.value})}/></label><label className="wide">客户电话<input value={editing.phone} onChange={e=>setEditing({...editing,phone:e.target.value})} placeholder="新人主要联系电话"/></label><label className="wide">婚宴酒店<input value={editing.hotel} onChange={e=>setEditing({...editing,hotel:e.target.value})} placeholder="酒店及厅名"/></label><label className="wide">男方地址<input value={editing.groomAddress} onChange={e=>setEditing({...editing,groomAddress:e.target.value})}/></label><label className="wide">女方地址<input value={editing.brideAddress} onChange={e=>setEditing({...editing,brideAddress:e.target.value})}/></label></div>
