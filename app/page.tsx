@@ -214,7 +214,10 @@ export default function Home() {
           if(clonedTarget)clonedTarget.classList.add("export-capture");
         },
       });
-      const link=document.createElement("a");link.download=`${current?`${current.groom}-${current.bride}-`:""}${tab}-长图.png`;link.href=canvas.toDataURL("image/png");link.click();setToast("当前页面长图已导出");
+      const output=document.createElement("canvas");output.width=canvas.width;output.height=canvas.height;
+      const context=output.getContext("2d");if(!context)throw new Error("canvas");
+      context.fillStyle="#ffffff";context.fillRect(0,0,output.width,output.height);context.drawImage(canvas,0,0);
+      const link=document.createElement("a");link.download=`${current?`${current.groom}-${current.bride}-`:""}${tab}-长图.jpg`;link.href=output.toDataURL("image/jpeg",0.96);link.click();setToast("当前页面长图已导出");
     } catch { setToast("当前浏览器无法直接导出，请使用系统长截图"); }
     setExporting(false);
   }
@@ -281,7 +284,7 @@ export default function Home() {
   const days = new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate();
 
   return <main className="app-shell manager">
-    <header className="topbar no-export"><div className="brand"><span className="brand-mark">囍</span><div><strong>婚礼管家</strong><small>客户与执行工作台</small></div></div><div className="top-actions"><button className="install-top" onClick={installApp}>安装</button>{current&&["detail","meeting","board","execute"].includes(tab)&&<button className="export-top" onClick={exportCurrentPage}>{exporting?"生成中…":"导出长图"}</button>}<button className="add-top" onClick={() => setEditing({ ...blank, contacts: blank.contacts.map(x=>({...x})),preparations:blank.preparations.map(x=>({...x})),familyRoles:blank.familyRoles.map(x=>({...x})) })}>＋ 新建客户</button></div></header>
+    <header className="topbar no-export"><div className="brand"><span className="brand-mark">囍</span><div><strong>婚礼管家</strong><small>客户与执行工作台</small></div></div><div className="top-actions">{installPrompt&&<button className="install-top" onClick={installApp}>安装</button>}{current&&["detail","meeting","board","execute"].includes(tab)&&<button className="export-top" onClick={exportCurrentPage}>{exporting?"生成中…":"导出长图"}</button>}<button className="add-top" onClick={() => setEditing({ ...blank, contacts: blank.contacts.map(x=>({...x})),preparations:blank.preparations.map(x=>({...x})),familyRoles:blank.familyRoles.map(x=>({...x})) })}>＋ 新建客户</button></div></header>
     <section className="content" ref={captureRef}>
       {tab === "clients" && <>
         <div className="manager-hero"><div><span>婚礼管家工作台</span><h1>客户档案与近期婚礼</h1><p>先建档，再自动生成专属时间表和风俗执行单。</p></div><b>{rows.length}<small>客户</small></b></div>

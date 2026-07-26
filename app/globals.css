@@ -409,11 +409,10 @@ button { cursor: pointer; }
 .board-shot-head p { margin:0; font-size:9px; opacity:.72; }
 .board-page .board { border-radius:0 0 16px 16px; }
 .shot-tip { text-align:center; color:var(--muted); font-size:9px; margin:13px 0 0; }
-@media(max-width:600px) {
-  input,select,textarea { font-size:16px!important; }
+@media(max-width:420px) {
   .custom-select { grid-template-columns:1fr; }
   .mini-schedule small { display:none; }
-  .profile-head > div { grid-template-columns:1fr 1fr; }
+  .profile-head > div { grid-template-columns:1fr; }
   .top-actions .add-top { display:none; }
   .top-actions { gap:4px; }
   .export-top,.install-top { padding:8px; }
