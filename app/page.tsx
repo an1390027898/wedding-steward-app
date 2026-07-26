@@ -4,11 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type ScheduleItem = { time: string; title: string; place: string; owner: string; script: string; items: string[] };
 type Preparation = { side: "男方" | "女方"; name: string; quantity: string; owner: string; deadline: string; done: boolean };
+type FamilyRole = { side: "男方" | "女方"; role: string; duty: string; name: string; phone: string };
 type Wedding = {
   id?: number; groom: string; bride: string; weddingDate: string; banquetTime: string; status: string;
   phone: string; hotel: string; groomAddress: string; brideAddress: string; notes: string;
   customs: string[]; customExecutors: Record<string, string>; preparations: Preparation[]; times: Record<string, string>;
-  schedule: ScheduleItem[]; contacts: { role: string; name: string; phone: string; arrival?: string }[];
+  familyRoles: FamilyRole[]; schedule: ScheduleItem[]; contacts: { role: string; name: string; phone: string; arrival?: string }[];
 };
 
 const timeFields = [
@@ -17,7 +18,7 @@ const timeFields = [
 ] as const;
 
 const defaultContacts = ["管家","主持人","摄影师","摄像师","化妆师"];
-const familyRoles = [
+const defaultFamilyRoles: FamilyRole[] = [
   ["男方","男方总管","统筹人员、烟酒糖、送亲接待和突发协调"],
   ["男方","男方上头奶奶","支床滚床、接灯、下车进门、新房礼"],
   ["男方","喜婆婆","下车钱、红皮箱捏锁和迎接新娘"],
@@ -30,7 +31,7 @@ const familyRoles = [
   ["女方","送亲兄弟／抱箱人","红皮箱、钥匙和换鞋交接"],
   ["女方","护被人／抱被人","棉被枕头运输并交入新房"],
   ["女方","伴娘","长命灯、红毛巾、随身包和裙摆"],
-] as const;
+].map(([side,role,duty])=>({side:side as "男方"|"女方",role,duty,name:"",phone:""}));
 
 const defaultPreparations: Preparation[] = [
   { side:"男方",name:"总流程表、联系人表",quantity:"纸质＋电子版各1份",owner:"男方总管",deadline:"婚前3—7天",done:false },
@@ -66,7 +67,7 @@ const blank: Wedding = {
   groom: "", bride: "", weddingDate: "", banquetTime: "11:38", status: "筹备中", phone: "", hotel: "",
   groomAddress: "", brideAddress: "", notes: "", customs: ["上马菜", "长命灯", "接箱接被", "红伞出门", "敬茶改口"],
   customExecutors: {"上马菜":"女方上头奶奶","长命灯":"男方上头奶奶／伴娘","接箱接被":"喜婆婆／送亲兄弟／护被人","红伞出门":"新郎／女方上头奶奶","敬茶改口":"管家／双方父母"},
-  preparations: defaultPreparations.map(x=>({...x})), times: {}, schedule: [], contacts: defaultContacts.map(role => ({ role, name: "", phone: "", arrival: "" })),
+  preparations: defaultPreparations.map(x=>({...x})), familyRoles:defaultFamilyRoles.map(x=>({...x})), times: {}, schedule: [], contacts: defaultContacts.map(role => ({ role, name: "", phone: "", arrival: "" })),
 };
 
 function normalizeWedding(w: Wedding): Wedding {
@@ -78,6 +79,7 @@ function normalizeWedding(w: Wedding): Wedding {
   const others = existing.filter(c => !defaultContacts.includes(c.role) && !["婚礼管家","摄影","摄像"].includes(c.role)).map(c => ({ ...c, arrival: c.arrival || "" }));
   return { ...w, times: w.times || {}, customs: w.customs || [], customExecutors:w.customExecutors||{},
     preparations:Array.isArray(w.preparations)&&w.preparations.length?w.preparations:defaultPreparations.map(x=>({...x})),
+    familyRoles:Array.isArray(w.familyRoles)&&w.familyRoles.length?w.familyRoles:defaultFamilyRoles.map(x=>({...x})),
     schedule: w.schedule || [], contacts: [...fixed, ...others] };
 }
 
@@ -112,6 +114,8 @@ export default function Home() {
   const [done, setDone] = useState<Record<string, boolean>>({});
   const [customDraft, setCustomDraft] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [stageEdit, setStageEdit] = useState<{index:number;item:ScheduleItem}|null>(null);
+  const [stageItemDraft, setStageItemDraft] = useState("");
   const captureRef = useRef<HTMLElement>(null);
 
   async function load() {
@@ -130,7 +134,7 @@ export default function Home() {
     if (!editing || !editing.groom || !editing.bride || !editing.weddingDate) {
       setToast("请先填写新郎、新娘和婚礼日期"); return;
     }
-    const payload = { ...editing, schedule: makeSchedule(editing) };
+    const payload = { ...editing, schedule: editing.schedule.length ? editing.schedule : makeSchedule(editing) };
     const response = await fetch("/api/weddings", { method: editing.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!response.ok) { setToast("保存失败，请检查后重试"); return; }
     const data = await response.json();
@@ -183,6 +187,15 @@ export default function Home() {
     } catch { setToast("当前浏览器无法直接导出，请使用系统长截图"); }
     setExporting(false);
   }
+  function saveStage() {
+    if(!current||!stageEdit)return;
+    const schedule=[...current.schedule]; schedule[stageEdit.index]=stageEdit.item;
+    persistWedding({...current,schedule},"执行环节已更新，其他页面已同步"); setStageEdit(null); setStageItemDraft("");
+  }
+  function deleteStage(index:number) {
+    if(!current)return;
+    persistWedding({...current,schedule:current.schedule.filter((_,i)=>i!==index)},"执行环节已删除，其他页面已同步");
+  }
   function open(w: Wedding) { setCurrent(w); setTab("detail"); }
   function regenerate() {
     if (!current) return;
@@ -195,7 +208,7 @@ export default function Home() {
   const days = new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate();
 
   return <main className="app-shell manager">
-    <header className="topbar no-export"><div className="brand"><span className="brand-mark">囍</span><div><strong>通用婚礼管家</strong><small>客户与执行工作台</small></div></div><div className="top-actions">{current&&["detail","meeting","board","execute"].includes(tab)&&<button className="export-top" onClick={exportCurrentPage}>{exporting?"生成中…":"导出长图"}</button>}<button className="add-top" onClick={() => setEditing({ ...blank, contacts: blank.contacts.map(x=>({...x})),preparations:blank.preparations.map(x=>({...x})) })}>＋ 新建客户</button></div></header>
+    <header className="topbar no-export"><div className="brand"><span className="brand-mark">囍</span><div><strong>婚礼管家</strong><small>客户与执行工作台</small></div></div><div className="top-actions">{current&&["detail","meeting","board","execute"].includes(tab)&&<button className="export-top" onClick={exportCurrentPage}>{exporting?"生成中…":"导出长图"}</button>}<button className="add-top" onClick={() => setEditing({ ...blank, contacts: blank.contacts.map(x=>({...x})),preparations:blank.preparations.map(x=>({...x})),familyRoles:blank.familyRoles.map(x=>({...x})) })}>＋ 新建客户</button></div></header>
     <section className="content" ref={captureRef}>
       {tab === "clients" && <>
         <div className="manager-hero"><div><span>婚礼管家工作台</span><h1>客户档案与近期婚礼</h1><p>先建档，再自动生成专属时间表和风俗执行单。</p></div><b>{rows.length}<small>客户</small></b></div>
@@ -225,18 +238,18 @@ export default function Home() {
       </section>}
 
       {tab === "meeting" && current && <section className="page-section meeting-page">
-        <button className="back no-export" onClick={()=>setTab("detail")}>‹ 返回客户档案</button>
+        <div className="meeting-actions no-export"><button className="back" onClick={()=>setTab("detail")}>‹ 返回客户档案</button><button onClick={()=>setEditing({...current,familyRoles:current.familyRoles.map(x=>({...x})),preparations:current.preparations.map(x=>({...x}))})}>编辑会议全部内容</button></div>
         <div className="meeting-cover"><span>双方家庭婚前沟通依据</span><h1>{current.groom} & {current.bride}</h1><p>{current.weddingDate} · 本清单须由双方家庭共同确认</p></div>
         <div className="meeting-note"><b>会议目标</b><p>把每件物品、每个风俗落实到具体人员。没有确认的项目不擅自增加；现场变化由管家统一同步。</p></div>
         {(["男方","女方"] as const).map(side=><section className="meeting-block" key={side}><div className="meeting-title"><i>{side.slice(0,1)}</i><div><h2>{side}准备事项</h2><p>物品、负责人、期限及完成状态</p></div></div><div className="meeting-table"><div className="meeting-row head"><b>准备项目</b><b>负责人／期限</b><b>状态</b></div>{current.preparations.filter(x=>x.side===side).map((item,index)=><div className="meeting-row" key={`${side}-${index}`}><span><b>{item.name}</b><small>{item.quantity}</small></span><span>{item.owner||"待确定"}<small>{item.deadline||"时间待确认"}</small></span><em className={item.done?"ok":""}>{item.done?"已完成":"待准备"}</em></div>)}</div></section>)}
-        <section className="meeting-block"><div className="meeting-title"><i>人</i><div><h2>双方家庭执行人员</h2><p>姓名和电话可在客户档案的工作人员中补充</p></div></div><div className="role-meeting">{familyRoles.map(([side,role,duty])=>{const person=current.contacts.find(c=>c.role===role);return <div key={role}><em>{side}</em><span><b>{role}</b><small>{duty}</small></span><p>{person?.name||"待确定"}{person?.phone&&<small>{person.phone}</small>}</p></div>})}</div></section>
+        <section className="meeting-block"><div className="meeting-title"><i>人</i><div><h2>双方家庭执行人员</h2><p>角色、职责、姓名和电话均可编辑</p></div></div><div className="role-meeting">{current.familyRoles.map(({side,role,duty,name,phone})=><div key={`${side}-${role}`}><em>{side}</em><span><b>{role}</b><small>{duty}</small></span><p>{name||"待确定"}{phone&&<small>{phone}</small>}</p></div>)}</div></section>
         <section className="meeting-block"><div className="meeting-title"><i>俗</i><div><h2>本场风俗与执行人</h2><p>不同村镇做法不同，必须由双方长辈最终确认</p></div></div><div className="custom-meeting">{current.customs.map(name=><div key={name}><span>□</span><b>{name}</b><p>{current.customExecutors[name]||"执行人待确定"}</p></div>)}</div></section>
         <p className="meeting-foot">确认日期：________　男方代表：________　女方代表：________　管家：________</p>
       </section>}
 
       {tab === "board" && current && <section className="page-section board-page">
         <button className="back no-print" onClick={()=>setTab("detail")}>‹ 返回客户档案</button>
-        <div className="board-shot-head"><span>通用婚礼管家 · 手机当日看板</span><h1>{current.groom} & {current.bride}</h1><p>{current.weddingDate} · 请以管家当天通知为准</p></div>
+        <div className="board-shot-head"><span>婚礼管家 · 手机当日看板</span><h1>{current.groom} & {current.bride}</h1><p>{current.weddingDate} · 请以管家当天通知为准</p></div>
         <div className="board">
           <div className="board-head"><b>模块</b><b>项目</b><b>内容</b></div>
           {[
@@ -245,8 +258,6 @@ export default function Home() {
             ["地址路线",[["男方地址",current.groomAddress||"待填写"],["女方地址",current.brideAddress||"待填写"],["婚车路线",`${current.groomAddress||"男方家"} → ${current.brideAddress||"女方家"} → ${current.groomAddress||"男方家"} → ${current.hotel||"酒店"}`]]],
             ["重点时间",timeFields.map(([key,label])=>[label,current.times[key]||"待确认"])],
             ["婚礼风俗",current.customs.length?current.customs.map((name)=>[name,current.customExecutors[name]||"执行人待确认"]):[["本场风俗","待确认"]]],
-            ["男方物品",current.preparations.filter(x=>x.side==="男方").map(x=>[x.name,`${x.done?"已完成":"待准备"} · ${x.owner} · ${x.deadline}`])],
-            ["女方物品",current.preparations.filter(x=>x.side==="女方").map(x=>[x.name,`${x.done?"已完成":"待准备"} · ${x.owner} · ${x.deadline}`])],
             ["工作人员",current.contacts.map(c=>[c.role,`${c.name||"待填写"}${c.phone?` · ${c.phone}`:""}${c.arrival?` · ${c.arrival}到岗`:" · 到岗时间待确认"}`])],
             ["备注",[["现场备注",current.notes||"任何时间或环节变化，由婚礼管家统一通知。"]]],
           ].map(([group,items])=><div className="board-group" key={group as string}><div className="group-label">{group as string}</div><div className="group-rows">{(items as string[][]).map(([label,value])=><div className="board-row" key={label}><b>{label}</b><span>{value}</span></div>)}</div></div>)}
@@ -255,11 +266,11 @@ export default function Home() {
       </section>}
 
       {tab === "execute" && current && <section className="page-section execute">
-        <button className="back" onClick={()=>setTab("detail")}>‹ 返回客户档案</button>
+        <div className="meeting-actions no-export"><button className="back" onClick={()=>setTab("detail")}>‹ 返回客户档案</button><button onClick={()=>setStageEdit({index:current.schedule.length,item:{time:"待确认",title:"新执行环节",place:"待确认",owner:"管家",script:"",items:[]}})}>＋ 添加执行环节</button></div>
         <div className="wedding-card"><div><span className="eyebrow">{current.weddingDate}</span><h1>{current.groom} <i>与</i> {current.bride}</h1><p>{current.hotel}</p></div><div className="status-pill"><span />执行中</div></div>
         {current.preparations.some(x=>!x.done)&&<div className="execution-reminder"><b>还有 {current.preparations.filter(x=>!x.done).length} 项物品未确认</b><p>{current.preparations.filter(x=>!x.done).slice(0,4).map(x=>`${x.side}：${x.name}（${x.owner}）`).join("；")}</p></div>}
         <div className="custom-execute">{current.customs.map(name=><span key={name}><b>{name}</b>{current.customExecutors[name]||"执行人待确认"}</span>)}</div>
-        <div className="execution-list">{current.schedule.map((item,index)=><article key={item.time+item.title} className={done[`${current.id}-${index}`]?"finished":""}><header><time>{item.time}</time><div><small>{item.place}</small><h3>{item.title}</h3></div><button onClick={()=>setDone(old=>({...old,[`${current.id}-${index}`]:!old[`${current.id}-${index}`]}))}>{done[`${current.id}-${index}`]?"已完成":"完成"}</button></header><p><b>管家口令：</b>{item.script}</p><div>{item.items.map(x=><span key={x}>{x}</span>)}</div></article>)}</div>
+        <div className="execution-list">{current.schedule.map((item,index)=><article key={`${index}-${item.time}-${item.title}`} className={done[`${current.id}-${index}`]?"finished":""}><header><time>{item.time}</time><div><small>{item.place}</small><h3>{item.title}</h3></div><div className="stage-actions no-export"><button onClick={()=>setStageEdit({index,item:{...item,items:[...item.items]}})}>编辑</button><button onClick={()=>setDone(old=>({...old,[`${current.id}-${index}`]:!old[`${current.id}-${index}`]}))}>{done[`${current.id}-${index}`]?"已完成":"完成"}</button></div></header><p><b>管家口令：</b>{item.script||"口令待填写"}</p><div>{item.items.map(x=><span key={x}>{x}</span>)}</div><button className="delete-stage no-export" onClick={()=>deleteStage(index)}>删除本环节</button></article>)}</div>
       </section>}
     </section>
 
@@ -273,9 +284,16 @@ export default function Home() {
       <div className="add-custom"><input value={customDraft} onChange={e=>setCustomDraft(e.target.value)} placeholder="输入新的风俗名称"/><button onClick={()=>{addCustom(customDraft);setCustomDraft("");}}>＋ 添加风俗</button></div>
       <div className="preset-customs"><span>手册常用风俗：</span>{customs.filter(([name])=>!editing.customs.includes(name)).map(([name])=><button key={name} onClick={()=>addCustom(name)}>＋{name}</button>)}</div>
       <h3>男方、女方物品准备清单 <small>写清谁负责、何时完成</small></h3><div className="prep-editor">{editing.preparations.map((item,index)=><div key={`${item.side}-${index}`}><select value={item.side} onChange={e=>setEditing({...editing,preparations:editing.preparations.map((x,i)=>i===index?{...x,side:e.target.value as "男方"|"女方"}:x)})}><option>男方</option><option>女方</option></select><input value={item.name} placeholder="物品或菜品" onChange={e=>setEditing({...editing,preparations:editing.preparations.map((x,i)=>i===index?{...x,name:e.target.value}:x)})}/><input value={item.quantity} placeholder="数量／规格" onChange={e=>setEditing({...editing,preparations:editing.preparations.map((x,i)=>i===index?{...x,quantity:e.target.value}:x)})}/><input value={item.owner} placeholder="负责人" onChange={e=>setEditing({...editing,preparations:editing.preparations.map((x,i)=>i===index?{...x,owner:e.target.value}:x)})}/><input value={item.deadline} placeholder="最晚完成时间" onChange={e=>setEditing({...editing,preparations:editing.preparations.map((x,i)=>i===index?{...x,deadline:e.target.value}:x)})}/><label><input type="checkbox" checked={item.done} onChange={e=>setEditing({...editing,preparations:editing.preparations.map((x,i)=>i===index?{...x,done:e.target.checked}:x)})}/>完成</label><button onClick={()=>setEditing({...editing,preparations:editing.preparations.filter((_,i)=>i!==index)})}>×</button></div>)}<button className="add-staff" onClick={()=>setEditing({...editing,preparations:[...editing.preparations,{side:"男方",name:"",quantity:"",owner:"",deadline:"",done:false}]})}>＋ 添加准备事项</button></div>
+      <h3>双方家庭执行人员 <small>家庭会议中的角色、职责、姓名和电话</small></h3><div className="family-role-editor">{editing.familyRoles.map((person,index)=><div key={`${person.side}-${index}`}><select value={person.side} onChange={e=>setEditing({...editing,familyRoles:editing.familyRoles.map((x,i)=>i===index?{...x,side:e.target.value as "男方"|"女方"}:x)})}><option>男方</option><option>女方</option></select><input value={person.role} placeholder="角色" onChange={e=>setEditing({...editing,familyRoles:editing.familyRoles.map((x,i)=>i===index?{...x,role:e.target.value}:x)})}/><input value={person.duty} placeholder="负责什么" onChange={e=>setEditing({...editing,familyRoles:editing.familyRoles.map((x,i)=>i===index?{...x,duty:e.target.value}:x)})}/><input value={person.name} placeholder="姓名" onChange={e=>setEditing({...editing,familyRoles:editing.familyRoles.map((x,i)=>i===index?{...x,name:e.target.value}:x)})}/><input value={person.phone} placeholder="电话" onChange={e=>setEditing({...editing,familyRoles:editing.familyRoles.map((x,i)=>i===index?{...x,phone:e.target.value}:x)})}/><button onClick={()=>setEditing({...editing,familyRoles:editing.familyRoles.filter((_,i)=>i!==index)})}>×</button></div>)}<button className="add-staff" onClick={()=>setEditing({...editing,familyRoles:[...editing.familyRoles,{side:"男方",role:"",duty:"",name:"",phone:""}]})}>＋ 添加家庭执行人员</button></div>
       <h3>参与婚礼的工作人员 <small>固定岗位＋其他自定义岗位</small></h3><div className="staff-inputs">{editing.contacts.map((contact,index)=><div key={`${contact.role}-${index}`}><input value={contact.role} aria-label="岗位" readOnly={index<defaultContacts.length} className={index<defaultContacts.length?"fixed-role":""} onChange={e=>setEditing({...editing,contacts:editing.contacts.map((c,i)=>i===index?{...c,role:e.target.value}:c)})}/><input value={contact.name} aria-label={`${contact.role}姓名`} placeholder="姓名／团队" onChange={e=>setEditing({...editing,contacts:editing.contacts.map((c,i)=>i===index?{...c,name:e.target.value}:c)})}/><input value={contact.phone} aria-label={`${contact.role}电话`} placeholder="联系电话" onChange={e=>setEditing({...editing,contacts:editing.contacts.map((c,i)=>i===index?{...c,phone:e.target.value}:c)})}/><input type="time" value={contact.arrival||""} aria-label={`${contact.role}到岗时间`} onChange={e=>setEditing({...editing,contacts:editing.contacts.map((c,i)=>i===index?{...c,arrival:e.target.value}:c)})}/>{index>=defaultContacts.length&&<button onClick={()=>setEditing({...editing,contacts:editing.contacts.filter((_,i)=>i!==index)})}>×</button>}</div>)}<button className="add-staff" onClick={()=>setEditing({...editing,contacts:[...editing.contacts,{role:"其他岗位",name:"",phone:"",arrival:""}]})}>＋ 添加其他工作人员</button></div>
       <label className="notes-input">备注<textarea value={editing.notes} onChange={e=>setEditing({...editing,notes:e.target.value})} placeholder="双方家庭特别要求、禁忌、未确认事项……"/></label>
       <button className="done-button" onClick={save}>保存并生成婚礼时间表</button><p className="flex-note">生成时间仅作执行参考，可根据路程、吉时和现场情况随时调整。</p>
+    </section></div>}
+    {stageEdit && <div className="modal-backdrop"><section className="stage-edit-sheet"><div className="sheet-top"><div><span>当天执行</span><h2>{stageEdit.index<current!.schedule.length?"编辑执行环节":"新增执行环节"}</h2></div><button onClick={()=>setStageEdit(null)}>×</button></div>
+      <div className="stage-form"><label>环节时间<input value={stageEdit.item.time} onChange={e=>setStageEdit({...stageEdit,item:{...stageEdit.item,time:e.target.value}})} placeholder="如 08:38 或 待确认"/></label><label>环节名称<input value={stageEdit.item.title} onChange={e=>setStageEdit({...stageEdit,item:{...stageEdit.item,title:e.target.value}})}/></label><label>执行地点<input value={stageEdit.item.place} onChange={e=>setStageEdit({...stageEdit,item:{...stageEdit.item,place:e.target.value}})}/></label><label>负责人<input value={stageEdit.item.owner} onChange={e=>setStageEdit({...stageEdit,item:{...stageEdit.item,owner:e.target.value}})}/></label><label className="wide">管家口令<textarea value={stageEdit.item.script} onChange={e=>setStageEdit({...stageEdit,item:{...stageEdit.item,script:e.target.value}})} placeholder="现场可随时修改的管家口令"/></label></div>
+      <h3>本环节执行物品</h3><div className="stage-item-editor">{stageEdit.item.items.map((item,index)=><div key={`${index}-${item}`}><input value={item} onChange={e=>setStageEdit({...stageEdit,item:{...stageEdit.item,items:stageEdit.item.items.map((x,i)=>i===index?e.target.value:x)}})}/><button onClick={()=>setStageEdit({...stageEdit,item:{...stageEdit.item,items:stageEdit.item.items.filter((_,i)=>i!==index)}})}>×</button></div>)}</div>
+      <div className="add-custom"><input value={stageItemDraft} onChange={e=>setStageItemDraft(e.target.value)} placeholder="添加执行物品"/><button onClick={()=>{const value=stageItemDraft.trim();if(value)setStageEdit({...stageEdit,item:{...stageEdit.item,items:[...stageEdit.item.items,value]}});setStageItemDraft("");}}>＋ 添加</button></div>
+      <button className="done-button" onClick={saveStage}>保存执行环节并同步</button>
     </section></div>}
     {toast&&<div className="toast">{toast}</div>}
   </main>;

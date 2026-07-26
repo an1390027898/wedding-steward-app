@@ -1,0 +1,1 @@
+ALTER TABLE `weddings` ADD `family_roles` text DEFAULT '[]' NOT NULL;
