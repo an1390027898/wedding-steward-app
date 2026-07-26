@@ -447,3 +447,15 @@ button { cursor: pointer; }
   .no-print,.board-page .back { display:none!important; }
   .board-page { width:100%; }
 }
+
+/* Windows / macOS 独立桌面客户端 */
+.desktop-device body { background:#e9e3de; }
+.desktop-device .manager { max-width:1120px; min-height:100vh; margin:0 auto; border-radius:0; }
+.desktop-device .manager .topbar { max-width:1120px; height:76px; padding:14px 34px; position:sticky; }
+.desktop-device .manager .content { padding:28px 36px 30px; }
+.desktop-device .manager-nav { width:min(1120px,100%); height:68px; padding:8px 28px; }
+.desktop-device .manager-hero { min-height:185px; padding:32px; }
+.desktop-device .client-list { display:grid; grid-template-columns:1fr 1fr; }
+.desktop-device .form-sheet { width:min(960px,calc(100% - 48px)); border-radius:25px 25px 0 0; }
+.desktop-device .stage-edit-sheet { width:min(760px,calc(100% - 48px)); }
+.desktop-device .modal-backdrop { padding-top:32px; }
