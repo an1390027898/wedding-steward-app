@@ -1,6 +1,6 @@
-const CACHE = "wedding-steward-v3";
+const CACHE = "wedding-steward-v4";
 const BASE = new URL("./", self.location.href).pathname;
-const APP_SHELL = [`${BASE}manifest.webmanifest`, `${BASE}app-icon-192.png`, `${BASE}app-icon-512.png`, `${BASE}apple-touch-icon.png`, `${BASE}vendor/html2canvas.min.js`];
+const APP_SHELL = [`${BASE}manifest.webmanifest`, `${BASE}app-icon-192.png`, `${BASE}app-icon-512.png`, `${BASE}apple-touch-icon.png`, `${BASE}vendor/html2canvas.min.js`, `${BASE}update.html`];
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
