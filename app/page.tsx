@@ -119,7 +119,9 @@ export default function Home() {
   const [stageEdit, setStageEdit] = useState<{index:number;item:ScheduleItem}|null>(null);
   const [stageItemDraft, setStageItemDraft] = useState("");
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent|null>(null);
+  const [pendingImport, setPendingImport] = useState<Wedding[]|null>(null);
   const captureRef = useRef<HTMLElement>(null);
+  const backupInputRef = useRef<HTMLInputElement>(null);
   const readLocal=()=>{try{return (JSON.parse(localStorage.getItem(localKey)||"[]") as Wedding[]).map(normalizeWedding)}catch{return[]}};
   const writeLocal=(items:Wedding[])=>localStorage.setItem(localKey,JSON.stringify(items));
 
@@ -218,6 +220,43 @@ export default function Home() {
     const isiPhone=/iPhone|iPad|iPod/i.test(navigator.userAgent);
     setToast(isiPhone?"请点Safari底部“分享”，再选“添加到主屏幕”":"请打开浏览器菜单，选择“安装应用”或“添加到主屏幕”");
   }
+  function exportAllData() {
+    const payload={app:"婚礼管家",version:1,exportedAt:new Date().toISOString(),count:rows.length,weddings:rows};
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json;charset=utf-8"});
+    const url=URL.createObjectURL(blob);const link=document.createElement("a");
+    link.href=url;link.download=`婚礼管家全部数据-${new Date().toISOString().slice(0,10)}.json`;link.click();URL.revokeObjectURL(url);
+    setToast(`已导出 ${rows.length} 位客户的完整备份`);
+  }
+  async function readBackup(file:File) {
+    try {
+      const parsed=JSON.parse(await file.text()) as {weddings?:Wedding[]}|Wedding[];
+      const source=Array.isArray(parsed)?parsed:parsed.weddings;
+      if(!Array.isArray(source))throw new Error("format");
+      const valid=source.filter(w=>w&&typeof w.groom==="string"&&typeof w.bride==="string"&&typeof w.weddingDate==="string").map(normalizeWedding);
+      if(!valid.length&&source.length)throw new Error("records");
+      setPendingImport(valid);setToast(`已读取备份：${valid.length} 位客户`);
+    } catch {setToast("备份文件无法识别，请选择婚礼管家导出的 JSON 文件");}
+    if(backupInputRef.current)backupInputRef.current.value="";
+  }
+  async function applyBackup(mode:"merge"|"replace") {
+    if(!pendingImport)return;
+    const localMode=location.hostname.endsWith("github.io")||location.protocol==="file:";
+    if(localMode){
+      const incoming=pendingImport.map((w,index)=>({...w,id:w.id||Date.now()+index}));
+      let next=incoming;
+      if(mode==="merge"){
+        const map=new Map<string,Wedding>();incoming.forEach(w=>map.set(`${w.weddingDate}-${w.groom}-${w.bride}`,w));
+        readLocal().forEach(w=>map.set(`${w.weddingDate}-${w.groom}-${w.bride}`,w));next=Array.from(map.values());
+      }
+      writeLocal(next);setRows(next);setCurrent(null);setPendingImport(null);setTab("clients");
+      setToast(mode==="merge"?`合并完成，共 ${next.length} 位客户`:`恢复完成，共 ${next.length} 位客户`);return;
+    }
+    try {
+      if(mode==="replace")await Promise.all(rows.filter(w=>w.id).map(w=>fetch(`/api/weddings?id=${w.id}`,{method:"DELETE"})));
+      await Promise.all(pendingImport.map(w=>fetch("/api/weddings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...w,id:undefined})})));
+      setPendingImport(null);setCurrent(null);setTab("clients");await load();setToast("备份数据已经恢复");
+    } catch {setToast("导入过程中发生错误，请保留备份文件并重试");}
+  }
   function deleteStage(index:number) {
     if(!current)return;
     persistWedding({...current,schedule:current.schedule.filter((_,i)=>i!==index)},"执行环节已删除，其他页面已同步");
@@ -239,6 +278,7 @@ export default function Home() {
       {tab === "clients" && <>
         <div className="manager-hero"><div><span>婚礼管家工作台</span><h1>客户档案与近期婚礼</h1><p>先建档，再自动生成专属时间表和风俗执行单。</p></div><b>{rows.length}<small>客户</small></b></div>
         <div className="stats"><div><small>本月婚礼</small><strong>{filtered.length} 场</strong></div><div><small>待完善档案</small><strong>{rows.filter(x => !x.hotel || !x.phone).length} 份</strong></div><div><small>最近档期</small><strong>{rows.find(x => x.weddingDate >= new Date().toISOString().slice(0,10))?.weddingDate.slice(5).replace("-","/") || "暂无"}</strong></div></div>
+        <div className="backup-card"><div><i>备</i><span><b>数据备份与恢复</b><small>换手机前先导出，换手机后再导入</small></span></div><div><button onClick={exportAllData} disabled={!rows.length}>导出全部数据</button><button onClick={()=>backupInputRef.current?.click()}>导入备份</button><input ref={backupInputRef} type="file" accept=".json,application/json" onChange={e=>e.target.files?.[0]&&readBackup(e.target.files[0])}/></div></div>
         <div className="list-head"><div><h2>客户列表</h2><p>点击客户进入档案</p></div><button onClick={() => setEditing({ ...blank })}>新增</button></div>
         {loading ? <div className="empty">正在读取客户档案…</div> : rows.length === 0 ? <div className="empty"><b>还没有客户档案</b><p>点击“新建客户”，录入新人、婚期和风俗后即可生成时间表。</p><button onClick={() => setEditing({ ...blank })}>建立第一位客户</button></div> :
         <div className="client-list">{rows.map(w => <button key={w.id} onClick={() => open(w)}><time><b>{w.weddingDate.slice(8)}</b><small>{w.weddingDate.slice(5,7)}月</small></time><div><span>{w.status}</span><strong>{w.groom} & {w.bride}</strong><p>{w.hotel || "酒店待填写"} · {w.phone || "电话待填写"}</p></div><i>›</i></button>)}</div>}
@@ -321,6 +361,7 @@ export default function Home() {
       <div className="add-custom"><input value={stageItemDraft} onChange={e=>setStageItemDraft(e.target.value)} placeholder="添加执行物品"/><button onClick={()=>{const value=stageItemDraft.trim();if(value)setStageEdit({...stageEdit,item:{...stageEdit.item,items:[...stageEdit.item.items,value]}});setStageItemDraft("");}}>＋ 添加</button></div>
       <button className="done-button" onClick={saveStage}>保存执行环节并同步</button>
     </section></div>}
+    {pendingImport&&<div className="modal-backdrop"><section className="backup-sheet"><div className="sheet-top"><div><span>数据恢复</span><h2>发现 {pendingImport.length} 位客户</h2></div><button onClick={()=>setPendingImport(null)}>×</button></div><div className="backup-warning"><b>请选择恢复方式</b><p>建议优先使用“合并导入”。“全部替换”会清空当前手机中已有的客户资料。</p></div><button className="merge-backup" onClick={()=>applyBackup("merge")}>合并导入，保留现有客户</button><button className="replace-backup" onClick={()=>applyBackup("replace")}>清空当前数据，全部替换</button><button className="cancel-backup" onClick={()=>setPendingImport(null)}>取消</button></section></div>}
     {toast&&<div className="toast">{toast}</div>}
   </main>;
 }
