@@ -57,8 +57,10 @@
       "desktop/**/*",
       "desktop-dist/**/*",
       "public/app-icon-512.png",
-      "public/app-icon-1024.png"
+      "public/app-icon-1024.png",
+      "!node_modules/**/*"
     ],
+    "npmRebuild": false,
     "asar": true,
     "mac": {
       "category": "public.app-category.business",

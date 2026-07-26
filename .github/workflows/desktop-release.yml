@@ -14,8 +14,10 @@ jobs:
         include:
           - os: windows-latest
             command: npm run desktop:dist:win
+            artifact_path: release/*.exe
           - os: macos-latest
             command: npm run desktop:dist:mac
+            artifact_path: release/*.dmg
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -28,4 +30,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: 婚礼管家-${{ runner.os }}-安装包
-          path: release/*
+          path: ${{ matrix.artifact_path }}
