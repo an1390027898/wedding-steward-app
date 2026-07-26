@@ -27,6 +27,15 @@ button { cursor: pointer; }
 .brand small { font-size: 10px; color: var(--muted); margin-top: 2px; }
 .ghost-btn { border: 0; background: transparent; color: var(--muted); font-size: 12px; padding: 8px; }
 .content { padding: 18px 18px 0; }
+.export-capture { opacity: 1 !important; filter: none !important; background: #fff !important; }
+.export-capture * { opacity: 1 !important; filter: none !important; text-shadow: none !important; }
+.export-capture .board-shot-head { background: #8d1f2d !important; color: #fff !important; }
+.export-capture .board { background: #fff !important; border-color: #765e62 !important; }
+.export-capture .board-head { background: #dca3b2 !important; border-color: #765e62 !important; }
+.export-capture .group-label { background: #f2dfe4 !important; color: #5d3037 !important; }
+.export-capture .board-row { border-color: #9d888b !important; }
+.export-capture .board-row b { background: #f3e8eb !important; border-color: #9d888b !important; color: #3e3032 !important; }
+.export-capture .board-row span { color: #413638 !important; }
 
 .wedding-card { padding: 22px; border-radius: 24px; background: linear-gradient(145deg,#811f2a,#a52b39); color: white; display: flex; align-items: flex-start; justify-content: space-between; box-shadow: 0 14px 30px rgba(141,31,45,.22); overflow: hidden; position: relative; }
 .wedding-card::after { content: "囍"; position: absolute; right: -4px; bottom: -32px; font-family: serif; font-size: 112px; color: rgba(255,255,255,.06); }

@@ -206,9 +206,13 @@ export default function Home() {
       const renderer=(window as unknown as {html2canvas?:(node:HTMLElement,options:Record<string,unknown>)=>Promise<HTMLCanvasElement>}).html2canvas;
       if(!renderer)throw new Error("renderer");
       const canvas=await renderer(target,{
-        backgroundColor:"#fbf8f4",scale:Math.min(2,window.devicePixelRatio||1.5),useCORS:true,logging:false,
+        backgroundColor:"#ffffff",scale:Math.min(2,window.devicePixelRatio||1.5),useCORS:true,logging:false,
         width:target.scrollWidth,height:target.scrollHeight,windowWidth:target.scrollWidth,windowHeight:target.scrollHeight,
-        onclone:(documentClone:Document)=>documentClone.querySelectorAll(".no-export,.no-print,.bottom-nav").forEach(node=>node.remove()),
+        onclone:(documentClone:Document)=>{
+          documentClone.querySelectorAll(".no-export,.no-print,.bottom-nav").forEach(node=>node.remove());
+          const clonedTarget=documentClone.querySelector(".content") as HTMLElement|null;
+          if(clonedTarget)clonedTarget.classList.add("export-capture");
+        },
       });
       const link=document.createElement("a");link.download=`${current?`${current.groom}-${current.bride}-`:""}${tab}-长图.png`;link.href=canvas.toDataURL("image/png");link.click();setToast("当前页面长图已导出");
     } catch { setToast("当前浏览器无法直接导出，请使用系统长截图"); }
