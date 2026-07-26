@@ -1,0 +1,1 @@
+ALTER TABLE `weddings` ADD `times` text DEFAULT '{}' NOT NULL;
