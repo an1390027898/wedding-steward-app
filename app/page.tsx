@@ -217,6 +217,21 @@ export default function Home() {
       const output=document.createElement("canvas");output.width=canvas.width;output.height=canvas.height;
       const context=output.getContext("2d");if(!context)throw new Error("canvas");
       context.fillStyle="#ffffff";context.fillRect(0,0,output.width,output.height);context.drawImage(canvas,0,0);
+      const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+      if(isIOS){
+        const pixels=context.getImageData(0,0,output.width,output.height);
+        for(let i=0;i<pixels.data.length;i+=4){
+          const r=pixels.data[i],g=pixels.data[i+1],b=pixels.data[i+2];
+          const distance=Math.max(255-r,255-g,255-b);
+          if(distance>10){
+            pixels.data[i]=Math.max(0,255-(255-r)*3.8);
+            pixels.data[i+1]=Math.max(0,255-(255-g)*3.8);
+            pixels.data[i+2]=Math.max(0,255-(255-b)*3.8);
+          }
+          pixels.data[i+3]=255;
+        }
+        context.putImageData(pixels,0,0);
+      }
       const link=document.createElement("a");link.download=`${current?`${current.groom}-${current.bride}-`:""}${tab}-长图.jpg`;link.href=output.toDataURL("image/jpeg",0.96);link.click();setToast("当前页面长图已导出");
     } catch { setToast("当前浏览器无法直接导出，请使用系统长截图"); }
     setExporting(false);
