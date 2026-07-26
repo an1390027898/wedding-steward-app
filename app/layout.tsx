@@ -35,7 +35,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        {children}
+        <script src="./vendor/html2canvas.min.js" defer />
+      </body>
     </html>
   );
 }

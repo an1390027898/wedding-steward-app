@@ -105,6 +105,7 @@ function makeSchedule(w: Wedding): ScheduleItem[] {
 }
 
 export default function Home() {
+  const localKey="wedding-steward-local-weddings";
   const [tab, setTab] = useState<"clients" | "calendar" | "detail" | "meeting" | "board" | "execute">("clients");
   const [rows, setRows] = useState<Wedding[]>([]);
   const [current, setCurrent] = useState<Wedding | null>(null);
@@ -119,6 +120,8 @@ export default function Home() {
   const [stageItemDraft, setStageItemDraft] = useState("");
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent|null>(null);
   const captureRef = useRef<HTMLElement>(null);
+  const readLocal=()=>{try{return (JSON.parse(localStorage.getItem(localKey)||"[]") as Wedding[]).map(normalizeWedding)}catch{return[]}};
+  const writeLocal=(items:Wedding[])=>localStorage.setItem(localKey,JSON.stringify(items));
 
   async function load() {
     setLoading(true);
@@ -127,12 +130,15 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setRows(data.weddings.map(normalizeWedding));
-    } catch { setToast("客户数据暂时无法读取，请稍后重试"); }
+    } catch {
+      const localRows=readLocal(); setRows(localRows);
+      if(!localRows.length)setToast("当前为手机本机保存模式，可直接新建客户");
+    }
     setLoading(false);
   }
   useEffect(() => {
     load();
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
     const handleInstall=(event:Event)=>{event.preventDefault();setInstallPrompt(event as InstallPromptEvent)};
     window.addEventListener("beforeinstallprompt",handleInstall);
     return()=>window.removeEventListener("beforeinstallprompt",handleInstall);
@@ -143,20 +149,29 @@ export default function Home() {
       setToast("请先填写新郎、新娘和婚礼日期"); return;
     }
     const payload = { ...editing, schedule: editing.schedule.length ? editing.schedule : makeSchedule(editing) };
-    const response = await fetch("/api/weddings", { method: editing.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    if (!response.ok) { setToast("保存失败，请检查后重试"); return; }
-    const data = await response.json();
-    const saved = { ...payload, id: data.wedding.id } as Wedding;
-    setCurrent(saved);
-    setRows(old => editing.id ? old.map(x => x.id === saved.id ? saved : x) : [...old, saved]);
-    setEditing(null); setToast("已同步到客户档案、手机看板和当天执行");
-    await load();
+    try {
+      const response = await fetch("/api/weddings", { method: editing.id ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!response.ok) throw new Error("api");
+      const data = await response.json();
+      const saved = { ...payload, id: data.wedding.id } as Wedding;
+      setCurrent(saved); setRows(old => editing.id ? old.map(x => x.id === saved.id ? saved : x) : [...old, saved]);
+      setEditing(null); setToast("已同步到客户档案、手机看板和当天执行"); await load();
+    } catch {
+      const existing=readLocal(); const saved={...payload,id:editing.id||Date.now()} as Wedding;
+      const next=editing.id?existing.map(x=>x.id===saved.id?saved:x):[...existing,saved]; writeLocal(next);
+      setRows(next);setCurrent(saved);setEditing(null);setToast("已保存到当前手机，并同步全部页面");
+    }
   }
   async function persistWedding(updated: Wedding, message: string) {
     if (!updated.id) return;
-    const response = await fetch("/api/weddings", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(updated) });
-    if (!response.ok) { setToast("保存失败，请稍后重试"); return; }
-    setCurrent(updated); setRows(old=>old.map(x=>x.id===updated.id?updated:x)); setToast(message);
+    try {
+      const response = await fetch("/api/weddings", { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(updated) });
+      if(!response.ok)throw new Error("api");
+      setCurrent(updated); setRows(old=>old.map(x=>x.id===updated.id?updated:x)); setToast(message);
+    } catch {
+      const next=readLocal().map(x=>x.id===updated.id?updated:x);writeLocal(next);
+      setCurrent(updated);setRows(next);setToast(`${message}（已保存到当前手机）`);
+    }
   }
   function togglePreparation(index: number) {
     if (!current) return;
@@ -182,15 +197,13 @@ export default function Home() {
     const target=captureRef.current; if(!target||exporting)return;
     setExporting(true);
     try {
-      const css=Array.from(document.styleSheets).map(sheet=>{try{return Array.from(sheet.cssRules).map(rule=>rule.cssText).join("\n")}catch{return""}}).join("\n");
-      const clone=target.cloneNode(true) as HTMLElement;
-      clone.querySelectorAll(".no-export,.no-print,.bottom-nav").forEach(node=>node.remove());
-      const width=Math.max(target.scrollWidth,520), height=target.scrollHeight;
-      const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml"><style>${css}</style>${clone.outerHTML}</div></foreignObject></svg>`;
-      const blob=new Blob([svg],{type:"image/svg+xml;charset=utf-8"}); const url=URL.createObjectURL(blob); const img=new Image();
-      await new Promise<void>((resolve,reject)=>{img.onload=()=>resolve();img.onerror=reject;img.src=url});
-      const scale=Math.min(2,12000/Math.max(height,1)); const canvas=document.createElement("canvas"); canvas.width=Math.round(width*scale); canvas.height=Math.round(height*scale);
-      const ctx=canvas.getContext("2d"); if(!ctx)throw new Error("canvas"); ctx.scale(scale,scale); ctx.fillStyle="#fbf8f4";ctx.fillRect(0,0,width,height);ctx.drawImage(img,0,0,width,height);URL.revokeObjectURL(url);
+      const renderer=(window as unknown as {html2canvas?:(node:HTMLElement,options:Record<string,unknown>)=>Promise<HTMLCanvasElement>}).html2canvas;
+      if(!renderer)throw new Error("renderer");
+      const canvas=await renderer(target,{
+        backgroundColor:"#fbf8f4",scale:Math.min(2,window.devicePixelRatio||1.5),useCORS:true,logging:false,
+        width:target.scrollWidth,height:target.scrollHeight,windowWidth:target.scrollWidth,windowHeight:target.scrollHeight,
+        onclone:(documentClone:Document)=>documentClone.querySelectorAll(".no-export,.no-print,.bottom-nav").forEach(node=>node.remove()),
+      });
       const link=document.createElement("a");link.download=`${current?`${current.groom}-${current.bride}-`:""}${tab}-长图.png`;link.href=canvas.toDataURL("image/png");link.click();setToast("当前页面长图已导出");
     } catch { setToast("当前浏览器无法直接导出，请使用系统长截图"); }
     setExporting(false);
