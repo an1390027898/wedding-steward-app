@@ -366,6 +366,5 @@ export default function Home() {
       <button className="done-button" onClick={saveStage}>保存执行环节并同步</button>
     </section></div>}
     {pendingImport&&<div className="modal-backdrop"><section className="backup-sheet"><div className="sheet-top"><div><span>数据恢复</span><h2>发现 {pendingImport.length} 位客户</h2></div><button onClick={()=>setPendingImport(null)}>×</button></div><div className="backup-warning"><b>请选择恢复方式</b><p>建议优先使用“合并导入”。“全部替换”会清空当前手机中已有的客户资料。</p></div><button className="merge-backup" onClick={()=>applyBackup("merge")}>合并导入，保留现有客户</button><button className="replace-backup" onClick={()=>applyBackup("replace")}>清空当前数据，全部替换</button><button className="cancel-backup" onClick={()=>setPendingImport(null)}>取消</button></section></div>}
-    {toast&&<div className="toast">{toast}</div>}
   </main>;
 }
