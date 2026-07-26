@@ -134,7 +134,6 @@ export default function Home() {
       setRows(data.weddings.map(normalizeWedding));
     } catch {
       const localRows=readLocal(); setRows(localRows);
-      if(!localRows.length)setToast("当前为手机本机保存模式，可直接新建客户");
     }
     setLoading(false);
   }
