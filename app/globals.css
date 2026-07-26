@@ -18,8 +18,8 @@ body { margin: 0; color: var(--ink); background: #eee9e4; font-family: -apple-sy
 button, textarea { font: inherit; }
 button { cursor: pointer; }
 
-.app-shell { min-height: 100vh; max-width: 520px; margin: 0 auto; background: var(--paper); box-shadow: 0 0 40px rgba(80,50,40,.08); padding-bottom: 92px; }
-.topbar { height: 68px; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; background: rgba(251,248,244,.94); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(234,223,218,.8); }
+.app-shell { min-height: 100vh; min-height: 100dvh; max-width: 520px; margin: 0 auto; background: var(--paper); box-shadow: 0 0 40px rgba(80,50,40,.08); padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
+.topbar { height: calc(68px + env(safe-area-inset-top, 0px)); padding: calc(12px + env(safe-area-inset-top, 0px)) 20px 12px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; background: rgba(251,248,244,.94); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(234,223,218,.8); }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-mark { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: white; background: var(--wine); font-family: serif; font-size: 23px; box-shadow: 0 5px 14px rgba(141,31,45,.2); }
 .brand div { display: flex; flex-direction: column; }
@@ -117,7 +117,7 @@ button { cursor: pointer; }
 .contact-list p { margin: 0; font-size: 10px; color: #9a8c87; }
 .contact-list b { font-size: 10px; background: #f0ebe7; color: var(--wine); padding: 8px 10px; border-radius: 10px; }
 
-.bottom-nav { position: fixed; z-index: 30; bottom: 0; left: 50%; transform: translateX(-50%); width: min(520px,100%); height: 76px; background: rgba(255,255,255,.96); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4,1fr); padding: 7px 12px 9px; backdrop-filter: blur(18px); }
+.bottom-nav { position: fixed; z-index: 30; bottom: 0; left: 50%; transform: translateX(-50%); width: min(520px,100%); height: calc(76px + env(safe-area-inset-bottom, 0px)); background: rgba(255,255,255,.96); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4,1fr); padding: 7px 12px calc(9px + env(safe-area-inset-bottom, 0px)); backdrop-filter: blur(18px); }
 .bottom-nav button { border: 0; background: transparent; color: #a29793; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 9px; }
 .bottom-nav i { font-style: normal; width: 29px; height: 29px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: 12px; }
 .bottom-nav button.active { color: var(--wine); font-weight: 800; }
