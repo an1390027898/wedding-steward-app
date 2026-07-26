@@ -12,6 +12,8 @@ export async function GET() {
     return Response.json({ weddings: rows.map((row) => ({
       ...row,
       customs: JSON.parse(row.customs),
+      customExecutors: JSON.parse(row.customExecutors),
+      preparations: JSON.parse(row.preparations),
       times: JSON.parse(row.times),
       schedule: JSON.parse(row.schedule),
       contacts: JSON.parse(row.contacts),
@@ -32,7 +34,8 @@ export async function POST(request: Request) {
       groom: clean(body.groom), bride: clean(body.bride), weddingDate: clean(body.weddingDate),
       banquetTime: clean(body.banquetTime) || "11:38", status: clean(body.status) || "筹备中",
       phone: clean(body.phone), hotel: clean(body.hotel), groomAddress: clean(body.groomAddress),
-      brideAddress: clean(body.brideAddress), notes: clean(body.notes), customs: json(body.customs), times: objectJson(body.times),
+      brideAddress: clean(body.brideAddress), notes: clean(body.notes), customs: json(body.customs),
+      customExecutors: objectJson(body.customExecutors), preparations: json(body.preparations), times: objectJson(body.times),
       schedule: json(body.schedule), contacts: json(body.contacts), createdAt: now, updatedAt: now,
     }).returning();
     return Response.json({ wedding: row }, { status: 201 });
@@ -50,7 +53,8 @@ export async function PUT(request: Request) {
       groom: clean(body.groom), bride: clean(body.bride), weddingDate: clean(body.weddingDate),
       banquetTime: clean(body.banquetTime) || "11:38", status: clean(body.status) || "筹备中",
       phone: clean(body.phone), hotel: clean(body.hotel), groomAddress: clean(body.groomAddress),
-      brideAddress: clean(body.brideAddress), notes: clean(body.notes), customs: json(body.customs), times: objectJson(body.times),
+      brideAddress: clean(body.brideAddress), notes: clean(body.notes), customs: json(body.customs),
+      customExecutors: objectJson(body.customExecutors), preparations: json(body.preparations), times: objectJson(body.times),
       schedule: json(body.schedule), contacts: json(body.contacts), updatedAt: new Date(),
     }).where(eq(weddings.id, id)).returning();
     return Response.json({ wedding: row });

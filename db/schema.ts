@@ -13,6 +13,8 @@ export const weddings = sqliteTable("weddings", {
   brideAddress: text("bride_address").notNull().default(""),
   notes: text("notes").notNull().default(""),
   customs: text("customs").notNull().default("[]"),
+  customExecutors: text("custom_executors").notNull().default("{}"),
+  preparations: text("preparations").notNull().default("[]"),
   times: text("times").notNull().default("{}"),
   schedule: text("schedule").notNull().default("[]"),
   contacts: text("contacts").notNull().default("[]"),
